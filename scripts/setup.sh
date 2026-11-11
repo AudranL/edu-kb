@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Installe edu-kb, construit le graphe des programmes et branche le serveur MCP sur Claude.
+# Installe edu-kb, récupère le graphe des programmes et branche le serveur MCP sur Claude.
 #
-#   ./scripts/setup.sh                      # programmes de Programmes/ (ignoré par git)
-#   EDU_KB_PROGRAMMES=~/Docs/BO ./scripts/setup.sh
+#   ./scripts/setup.sh                      # télécharge la base publiée sur GitHub (rien à reconstruire)
+#   ./scripts/setup.sh --build              # reconstruit la base à partir des PDF de Programmes/
+#   EDU_KB_PROGRAMMES=~/Docs/BO ./scripts/setup.sh --build
 #
-# Relançable sans risque : chaque étape déjà faite est sautée ; le graphe est reconstruit
-# (quelques secondes, l'OCR et les embeddings sont mis en cache).
+# Relançable sans risque : chaque étape déjà faite est sautée ; la base est retéléchargée ou
+# reconstruite (quelques secondes, l'OCR et les embeddings sont mis en cache).
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -19,12 +20,23 @@ ok() { printf '  ✓ %s\n' "$1"; }
 warn() { printf '  ⚠ %s\n' "$1"; }
 die() { printf '\n✗ %s\n' "$1" >&2; exit 1; }
 
-[[ -d "$PROGRAMMES_DIR" ]] || die "Dossier introuvable : $PROGRAMMES_DIR (dépose les PDF des programmes dans $PROJECT_DIR/Programmes)"
+BUILD=false
+case "${1:-}" in
+  "") ;;
+  --build) BUILD=true ;;
+  *) die "Option inconnue : $1 (seule option : --build)" ;;
+esac
+
+if $BUILD; then
+  [[ -d "$PROGRAMMES_DIR" ]] || die "Dossier introuvable : $PROGRAMMES_DIR (dépose les PDF des programmes dans $PROJECT_DIR/Programmes)"
+fi
 
 # ------------------------------------------------------------------------ outils
 step "Outils"
 need_brew() { command -v brew >/dev/null || die "Homebrew est requis pour installer $1 : https://brew.sh"; }
-for tool in uv ollama ocrmypdf; do
+TOOLS=(uv ollama)
+if $BUILD; then TOOLS+=(ocrmypdf); fi
+for tool in "${TOOLS[@]}"; do
   if command -v "$tool" >/dev/null; then
     ok "$tool présent"
   else
@@ -33,12 +45,14 @@ for tool in uv ollama ocrmypdf; do
     ok "$tool installé"
   fi
 done
-if command -v tesseract >/dev/null && tesseract --list-langs 2>/dev/null | grep -qx fra; then
-  ok "tesseract (français) présent"
-else
-  need_brew tesseract-lang
-  brew install tesseract-lang
-  ok "tesseract-lang installé (OCR des programmes de sciences, publiés scannés)"
+if $BUILD; then
+  if command -v tesseract >/dev/null && tesseract --list-langs 2>/dev/null | grep -qx fra; then
+    ok "tesseract (français) présent"
+  else
+    need_brew tesseract-lang
+    brew install tesseract-lang
+    ok "tesseract-lang installé (OCR des programmes de sciences, publiés scannés)"
+  fi
 fi
 UV="$(command -v uv)"
 
@@ -62,9 +76,11 @@ if ollama_up; then
     ollama pull "$MODEL"
     ok "$MODEL téléchargé"
   fi
-else
+elif $BUILD; then
   warn "Ollama ne répond pas : graphe construit en plein texte seulement."
   EMBED_FLAG="--no-embed"
+else
+  warn "Ollama ne répond pas : la recherche sera en plein texte seulement tant qu'il ne tourne pas."
 fi
 
 # ------------------------------------------------------------------------ projet
@@ -72,8 +88,13 @@ step "Dépendances du projet"
 "$UV" sync --quiet --project "$PROJECT_DIR"
 ok "environnement Python prêt"
 
-step "Construction du graphe ($PROGRAMMES_DIR)"
-EDU_KB_PROGRAMMES="$PROGRAMMES_DIR" "$UV" run --quiet --project "$PROJECT_DIR" edu-kb build $EMBED_FLAG
+if $BUILD; then
+  step "Construction du graphe ($PROGRAMMES_DIR)"
+  EDU_KB_PROGRAMMES="$PROGRAMMES_DIR" "$UV" run --quiet --project "$PROJECT_DIR" edu-kb build $EMBED_FLAG
+else
+  step "Téléchargement du graphe"
+  "$UV" run --quiet --project "$PROJECT_DIR" edu-kb download
+fi
 
 # ------------------------------------------------------------------ branchement
 step "Branchement du serveur MCP"
@@ -119,4 +140,4 @@ fi
 # ---------------------------------------------------------------------- bilan
 step "Bilan"
 "$UV" run --quiet --project "$PROJECT_DIR" edu-kb status
-printf '\nAprès un nouveau programme (PDF + bloc dans sources.toml) : relance ./scripts/setup.sh\n'
+printf '\nAprès un nouveau programme (PDF + bloc dans sources.toml) : ./scripts/setup.sh --build\n'

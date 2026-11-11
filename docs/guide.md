@@ -253,7 +253,8 @@ s'applique plus à partir de 2026-2027.
 2. Ajoute un bloc `[[source]]` dans `sources.toml` (fichier, discipline, niveaux et années, pages,
    règles de titres). Le plus simple : copier le bloc d'un programme de la même série et ajuster les
    styles de titres (le README explique comment les relever).
-3. Relance `./scripts/setup.sh` (ou `uv run edu-kb build`).
+3. Relance `./scripts/setup.sh --build` (ou `uv run edu-kb build`).
+4. Commite et pousse, puis `./scripts/publier-base.sh` : les autres l'installent sans reconstruire.
 
 Les PDF scannés sont passés automatiquement par l'OCR (`ocr = true` dans le bloc).
 

@@ -299,6 +299,3 @@ pyrightconfig.json
 # Custom rules
 .venv/
 *.sqlite*
-
-# PDF des programmes officiels : publics mais volumineux (51 Mo), gardés en local
-Programmes/

@@ -1,4 +1,4 @@
-"""Ligne de commande : edu-kb build | embed | status | search | fiche | themes | programme | sequence | skola | graphe | serve."""
+"""Ligne de commande : edu-kb download | build | embed | status | search | fiche | themes | programme | sequence | skola | graphe | serve."""
 
 from __future__ import annotations
 
@@ -6,6 +6,8 @@ import argparse
 import json
 import sys
 from pathlib import Path
+
+import httpx
 
 from .config import Settings
 from .embed import EmbeddingUnavailable, OllamaEmbedder
@@ -40,6 +42,7 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="edu-kb", description="Graphe de connaissance des programmes de l'école élémentaire.")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
+    sub.add_parser("download", help="Télécharger la base publiée sur GitHub, sans reconstruire")
     p_build = sub.add_parser("build", help="Analyser les programmes de sources.toml et reconstruire le graphe")
     p_build.add_argument("--no-embed", action="store_true", help="Plein texte uniquement, sans Ollama")
     sub.add_parser("embed", help="Calculer les embeddings manquants (Ollama)")
@@ -113,7 +116,14 @@ def _run(args: argparse.Namespace, settings: Settings) -> None:
 
         serve()
         return
-    if args.cmd == "build":
+    if args.cmd == "download":
+        from .download import download_base
+
+        print(f"Téléchargement de {settings.base_url} → {settings.db_path}")
+        with httpx.Client(timeout=120) as http:
+            built_at = download_base(settings.base_url, settings.db_path, http)
+        print(f"Base construite le {built_at} installée. Redémarre Claude s'il tournait.")
+    elif args.cmd == "build":
         from .ingest import build
 
         kb = _kb(settings, semantic=not args.no_embed)
