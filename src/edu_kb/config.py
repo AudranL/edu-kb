@@ -12,6 +12,7 @@ from pathlib import Path
 from .outline import DocSpec, HeadingRule
 
 PROJECT_DIR = Path(__file__).resolve().parents[2]
+PUBLISHED_BASE_URL = "https://github.com/AudranL/edu-kb/releases/latest/download/kb.sqlite"
 
 
 @dataclass(frozen=True)
@@ -23,6 +24,7 @@ class Settings:
     cache_dir: Path
     ollama_url: str
     embed_model: str
+    base_url: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -35,6 +37,7 @@ class Settings:
             cache_dir=home / "cache",
             ollama_url=os.environ.get("OLLAMA_URL", "http://localhost:11434").rstrip("/"),
             embed_model=os.environ.get("EDU_KB_EMBED_MODEL", "bge-m3"),
+            base_url=os.environ.get("EDU_KB_BASE_URL", PUBLISHED_BASE_URL),
         )
 
 

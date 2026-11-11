@@ -25,18 +25,32 @@ Programmes/*.pdf ──build──▶ SQLite : nœuds, arêtes, index FTS5, vect
 
 ## Installation (macOS)
 
-Dépose les PDF des programmes dans `Programmes/` (un sous-dossier par niveau, les doublons sont
-ignorés), puis :
-
 ```bash
+git clone https://github.com/AudranL/edu-kb.git && cd edu-kb
 ./scripts/setup.sh
 ```
 
-Le script installe `uv`, `ollama`, `ocrmypdf` et `tesseract-lang` s'ils manquent (les programmes de
-sciences de 2026 sont publiés **scannés** : ils passent par l'OCR, mis en cache), télécharge
-`bge-m3`, construit le graphe dans `~/.edu-kb/kb.sqlite`, déclare le serveur MCP dans Claude Code
-et Claude Desktop (la config existante est sauvegardée en `.bak`) et affiche les textes en vigueur
-par niveau. `Programmes/` est ignoré par git.
+Rien à reconstruire : le script **télécharge la base publiée** (dernière release GitHub) dans
+`~/.edu-kb/kb.sqlite`. Il installe aussi `uv` et `ollama` s'ils manquent et télécharge `bge-m3`,
+qui sert à la recherche sémantique (sans Ollama, le serveur répond quand même, en plein texte
+seulement), déclare le serveur MCP dans Claude Code et Claude Desktop (la config existante est
+sauvegardée en `.bak`) et affiche les textes en vigueur par niveau.
+
+Pour mettre la base à jour : `git pull && ./scripts/setup.sh`, puis redémarre Claude.
+
+### Reconstruire et publier la base
+
+Les PDF des programmes sont dans `Programmes/` (un sous-dossier par niveau, les doublons sont
+ignorés) : ce sont les textes officiels du ministère, reproduits sans modification, avec leur BO
+dans `sources.toml`. Après avoir ajouté ou corrigé un programme :
+
+```bash
+./scripts/setup.sh --build     # analyse les PDF et reconstruit ~/.edu-kb/kb.sqlite
+./scripts/publier-base.sh      # la publie en release GitHub (code commité et poussé, gh connecté)
+```
+
+`--build` installe en plus `ocrmypdf` et `tesseract-lang` : les programmes de sciences de 2026 sont
+publiés **scannés** et passent par l'OCR (mis en cache).
 
 ## Le graphe
 
@@ -89,6 +103,7 @@ eduscol (« Enseigner au cycle 2 / 3 ») et corrige `applies` dans `sources.toml
 
 | Commande | Rôle |
 |---|---|
+| `edu-kb download` | télécharge la base publiée (dernière release GitHub) au lieu de la reconstruire |
 | `edu-kb build [--no-embed]` | analyse les PDF de `sources.toml` et reconstruit le graphe |
 | `edu-kb embed` | calcule les embeddings manquants |
 | `edu-kb status` | état de la base, textes en vigueur par niveau |
@@ -103,7 +118,8 @@ eduscol (« Enseigner au cycle 2 / 3 ») et corrige `applies` dans `sources.toml
 | `edu-kb serve` | serveur MCP (stdio), lancé par Claude |
 
 Variables : `EDU_KB_HOME` (défaut `~/.edu-kb`), `EDU_KB_DB`, `EDU_KB_PROGRAMMES`, `EDU_KB_SOURCES`,
-`EDU_KB_CALENDRIER`, `OLLAMA_URL`, `EDU_KB_EMBED_MODEL` (défaut `bge-m3`).
+`EDU_KB_CALENDRIER`, `OLLAMA_URL`, `EDU_KB_EMBED_MODEL` (défaut `bge-m3`), `EDU_KB_BASE_URL` (défaut :
+la base de la dernière release GitHub).
 
 ## Export Skola
 
