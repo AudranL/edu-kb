@@ -1,0 +1,31 @@
+# Calendrier scolaire utilisé pour découper l'année en périodes et en semaines.
+#
+# Une table par année de rentrée. `debut` = premier jour sans classe, `reprise` = jour de reprise
+# des cours. Les dates 2026-2027 viennent des calendriers publiés (Onisep, franceinfo) ;
+# à vérifier sur https://www.education.gouv.fr/calendrier-scolaire avant de s'y fier.
+
+[2026]
+rentree = "2026-09-01"
+ete = "2027-07-03"                  # début des vacances d'été (après les cours)
+jours_de_classe = [1, 2, 4, 5]      # lundi, mardi, jeudi, vendredi (semaine de 4 jours)
+feries = [
+    "2026-11-11",  # Armistice (mercredi)
+    "2027-03-29",  # lundi de Pâques
+    "2027-05-06",  # Ascension
+    "2027-05-07",  # pont de l'Ascension (pas de classe le vendredi)
+    "2027-05-17",  # lundi de Pentecôte
+]
+toussaint = { debut = "2026-10-17", reprise = "2026-11-02" }
+noel = { debut = "2026-12-19", reprise = "2027-01-04" }
+
+[2026.zones.A]
+hiver = { debut = "2027-02-13", reprise = "2027-03-01" }
+printemps = { debut = "2027-04-10", reprise = "2027-04-26" }
+
+[2026.zones.B]
+hiver = { debut = "2027-02-20", reprise = "2027-03-08" }
+printemps = { debut = "2027-04-17", reprise = "2027-05-03" }
+
+[2026.zones.C]
+hiver = { debut = "2027-02-06", reprise = "2027-02-22" }
+printemps = { debut = "2027-04-03", reprise = "2027-04-19" }

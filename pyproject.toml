@@ -1,0 +1,27 @@
+[project]
+name = "edu-kb"
+version = "0.1.0"
+description = "Graphe de connaissance des programmes officiels de l'école élémentaire, exposé en serveur MCP"
+readme = "README.md"
+authors = [
+    { name = "Audran Landuyt" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28.1",
+    "mcp>=2.3,<3",
+    "numpy>=2.0",
+    "pymupdf>=1.28.2",
+]
+
+[project.scripts]
+edu-kb = "edu_kb.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

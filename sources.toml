@@ -1,0 +1,447 @@
+# Programmes officiels indexés par edu-kb.
+#
+# Un bloc [[source]] décrit un document, ou une partie de document (`pages`) pour les anciens
+# programmes de cycle qui regroupent toutes les disciplines.
+#
+#   file        motif glob, cherché dans le dossier des programmes (le premier fichier trouvé est pris)
+#   applies     niveau → années scolaires d'application, « 2026- » (depuis la rentrée 2026),
+#               « -2027 » (jusqu'à la rentrée 2027, exclue), « 2016-2027 ».
+#   headings    règles de titres : signature de style « taille/B|R/couleur » (regex), position, rang.
+#               Rang 1 = domaine, 2 = niveau, 3 = rubrique ou thème, 4 = sous-rubrique.
+#               Le type est corrigé d'après le texte : « Cours préparatoire » → niveau,
+#               « Principes » → section, intitulé de `domaines` → domaine.
+#   domaines    intitulés des domaines (utile quand le style ne les distingue pas, PDF scannés)
+#   theme_under les rubriques de ces domaines sont des thèmes (culture littéraire…)
+#   rubrique_kind  type donné à toutes les rubriques (« theme » pour les sciences)
+#   ocr         PDF scanné : passé par ocrmypdf avant lecture
+#   sommaire_until  sur la première page lue, lignes au-dessus de cette ordonnée ignorées (sommaire)
+#
+# Dates d'application : arrêtés publiés au BO, d'après la synthèse par niveau de direkol.fr
+# (29 août 2026) ; à vérifier sur eduscol.education.gouv.fr, pages « Enseigner au cycle 2 / 3 ».
+
+[defaults]
+skip = [
+    "^©",
+    "^D’après le BOEN",
+    "^no 25 du 22 juin 2023",
+    "^Enseignements primaire et secondaire$",
+    "www\\.education\\.gouv\\.fr",
+    "www\\.eduscol\\.education\\.fr",
+]
+skip_bottom = 805
+
+# --------------------------------------------------------------------------- Français
+[[source]]
+id = "francais-c2-2024"
+file = "*Programme de français du cycle 2*.pdf"
+title = "Programme de français du cycle 2"
+bo = "Arrêté du 22 octobre 2024, BO n° 41 du 31 octobre 2024"
+discipline = "Français"
+cycle = 2
+pages = [2, 22]
+applies = { CP = "2025-", CE1 = "2025-", CE2 = "2025-" }
+headings = [
+    { style = "11\\.0/B/000091", x_max = 60, rank = 1, kind = "domaine" },
+    { style = "11\\.0/R/000091", x_max = 60, rank = 2, kind = "niveau" },
+    { style = "8\\.5/B/000091", x_max = 60, rank = 3, kind = "rubrique" },
+]
+
+[[source]]
+id = "francais-c3-2025"
+file = "programme-de-fran*ais-pour-le-cycle-3*.pdf"
+title = "Programme de français pour le cycle 3"
+bo = "Arrêté du 10 avril 2025, BO n° 16 du 17 avril 2025"
+discipline = "Français"
+cycle = 3
+pages = [2, 21]
+applies = { CM1 = "2025-", CM2 = "2026-", 6e = "2025-" }
+theme_under = ["Culture littéraire et artistique"]
+headings = [
+    { style = "11\\.0/B/000091", x_max = 60, rank = 1, kind = "domaine" },
+    { style = "11\\.0/R/000091", x_max = 60, rank = 2, kind = "niveau" },
+    { style = "8\\.5/B/000091", x_max = 60, rank = 3, kind = "rubrique" },
+]
+
+# --------------------------------------------------------------------------- Mathématiques
+[[source]]
+id = "maths-c2-2024"
+file = "*Programme de mathématiques du cycle 2*.pdf"
+title = "Programme de mathématiques du cycle 2"
+bo = "Arrêté du 22 octobre 2024, BO n° 41 du 31 octobre 2024"
+discipline = "Mathématiques"
+cycle = 2
+pages = [2, 38]
+applies = { CP = "2025-", CE1 = "2025-", CE2 = "2025-" }
+headings = [
+    { style = "11\\.0/B/000091", x_max = 60, rank = 1, kind = "domaine" },
+    { style = "11\\.0/R/000091", x_max = 60, rank = 2, kind = "niveau" },
+    { style = "8\\.5/B/000091", x_max = 60, rank = 3, kind = "rubrique" },
+    { style = "8\\.5/B/000000", x_max = 45, rank = 4, kind = "sous_rubrique" },
+]
+
+[[source]]
+id = "maths-c3-2025"
+file = "programme-de-math-matiques-pour-le-cycle-3*.pdf"
+title = "Programme de mathématiques pour le cycle 3"
+bo = "Arrêté du 10 avril 2025, BO n° 16 du 17 avril 2025"
+discipline = "Mathématiques"
+cycle = 3
+pages = [2, 28]
+applies = { CM1 = "2025-", CM2 = "2026-", 6e = "2025-" }
+headings = [
+    { style = "11\\.0/B/000091", x_max = 45, rank = 1, kind = "domaine" },
+    { style = "11\\.0/R/000091", x_max = 45, rank = 2, kind = "niveau" },
+    { style = "8\\.5/B/000091", x_max = 45, rank = 3, kind = "rubrique" },
+    { style = "8\\.5/B/000000", x_max = 30, rank = 4, kind = "sous_rubrique" },
+]
+
+# --------------------------------------------------------------------------- EMC
+[[source]]
+id = "emc-2024"
+file = "*Programme d’enseignement moral et civique du cours préparatoire*.pdf"
+title = "Programme d’enseignement moral et civique (CP à terminale)"
+bo = "Arrêté du 29 mai 2024, BO n° 24 du 13 juin 2024"
+discipline = "EMC"
+cycle = 0
+pages = [7, 14]
+applies = { CP = "2024-", CE1 = "2025-", CE2 = "2026-", CM1 = "2024-", CM2 = "2025-" }
+skip = ["^COLLÈGE$", "^ÉCOLE ÉLÉMENTAIRE$"]
+headings = [
+    { style = "11\\.0/B/5770be", x_max = 60, rank = 2, kind = "niveau" },
+    { style = "8\\.5/B/5770be", x_max = 60, rank = 3, kind = "theme" },
+]
+
+# --------------------------------------------------------------------------- EVAR
+[[source]]
+id = "evar-2025"
+file = "*Programme d’éducation à la vie affective et relationnelle*.pdf"
+title = "Programme d’éducation à la vie affective et relationnelle à l’école élémentaire"
+bo = "Arrêté du 3 février 2025, BO n° 6 du 6 février 2025"
+discipline = "EVAR"
+cycle = 0
+pages = [10, 18]
+applies = { CP = "2025-", CE1 = "2025-", CE2 = "2025-", CM1 = "2025-", CM2 = "2025-" }
+headings = [
+    { style = "13\\.0/B/63094d", x_max = 80, rank = 2, kind = "niveau" },
+    { style = "9\\.0/R/(63094d|efdf71)", text = "^Objectif d'apprentissage", rank = 3, kind = "rubrique", strip = "^Objectif d'apprentissage\\s*:\\s*" },
+]
+
+# --------------------------------------------------------------------------- Langues vivantes
+[[source]]
+id = "lv-c2-2026"
+file = "*Programme de langues vivantes étrangères et régionales pour le cycle 2*.pdf"
+title = "Programme de langues vivantes étrangères et régionales pour le cycle 2"
+bo = "Arrêté du 26 février 2026, BO n° 12 du 19 mars 2026"
+discipline = "Langues vivantes"
+cycle = 2
+pages = [1, 34]
+sommaire_until = 605
+applies = { CP = "2026-", CE1 = "2027-", CE2 = "2027-" }
+headings = [
+    { style = "11\\.0/B/000091", x_max = 45, rank = 1, kind = "domaine" },
+    { style = "12\\.0/R/000091", x_max = 45, rank = 2, kind = "niveau" },
+    { style = "10\\.0/B/000091", x_max = 45, rank = 3, kind = "rubrique" },
+]
+
+[[source]]
+id = "lv-c3-2026"
+file = "*Programme de langues vivantes étrangères et régionales pour les classes de cours moyen*.pdf"
+title = "Programme de langues vivantes étrangères et régionales pour les classes de cours moyen"
+bo = "Arrêté du 26 février 2026, BO n° 12 du 19 mars 2026"
+discipline = "Langues vivantes"
+cycle = 3
+pages = [1, 20]
+sommaire_until = 590
+applies = { CM1 = "2026-", CM2 = "2027-" }
+headings = [
+    { style = "11\\.0/B/000091", x_max = 45, rank = 1, kind = "domaine" },
+    { style = "12\\.0/R/000091", x_max = 45, rank = 2, kind = "niveau" },
+    { style = "10\\.0/B/000091", x_max = 45, rank = 3, kind = "rubrique" },
+]
+
+# --------------------------------------------------------------------------- EPS
+[[source]]
+id = "eps-c2-2026"
+file = "annexe-1-programme-d-education-physique-et-sportive-cycle-2*.pdf"
+title = "Programme d’éducation physique et sportive du cycle 2"
+bo = "Arrêté du 22 avril 2026, BO n° 22 du 28 mai 2026"
+discipline = "EPS"
+cycle = 2
+pages = [2, 16]
+applies = { CP = "2026-", CE1 = "2027-", CE2 = "2027-" }
+headings = [
+    { style = "11\\.0/B/000091", x_max = 45, rank = 1, kind = "domaine" },
+    { style = "14\\.0/R/000091", x_max = 45, rank = 2, kind = "niveau" },
+    { style = "10\\.0/B/000091", x_max = 45, rank = 3, kind = "rubrique" },
+]
+
+[[source]]
+id = "eps-c3-2026"
+file = "annexe-2-programme-d-education-physique-et-sportive-cycle-3*.pdf"
+title = "Programme d’éducation physique et sportive du cycle 3"
+bo = "Arrêté du 22 avril 2026, BO n° 22 du 28 mai 2026"
+discipline = "EPS"
+cycle = 3
+pages = [1, 10]
+sommaire_until = 620
+applies = { CM1 = "2026-", CM2 = "2027-", 6e = "2027-" }
+headings = [
+    { style = "14\\.0/R/000091", x_max = 45, rank = 1, kind = "niveau" },
+    { style = "11\\.0/B/000091", x_max = 45, rank = 2, kind = "domaine" },
+    { style = "10\\.0/B/000091", x_max = 45, rank = 3, kind = "rubrique" },
+]
+
+# --------------------------------------------------------------------------- Histoire-géographie
+[[source]]
+id = "hg-c2-2026"
+file = "annexe-3-programme-d-histoire-geographie-cycle-2*.pdf"
+title = "Programme d’histoire-géographie pour le cycle 2"
+bo = "Arrêté du 22 avril 2026, BO n° 22 du 28 mai 2026"
+discipline = "Histoire-géographie"
+cycle = 2
+pages = [1, 8]
+sommaire_until = 430
+applies = { CP = "2026-", CE1 = "2026-", CE2 = "2026-" }  # remplace Questionner le monde dès la rentrée 2026
+headings = [
+    { style = "14\\.0/R/000091", x_max = 45, rank = 1, kind = "domaine" },
+    { style = "11\\.0/B/000091", x_max = 45, rank = 2, kind = "niveau" },
+    { style = "10\\.0/B/000091", x_max = 45, rank = 3, kind = "theme" },
+]
+
+[[source]]
+id = "hg-c3-2026"
+file = "annexe-4-programme-d-histoire-geographie-cycle-3*.pdf"
+title = "Programme d’histoire-géographie pour le cycle 3"
+bo = "Arrêté du 22 avril 2026, BO n° 22 du 28 mai 2026"
+discipline = "Histoire-géographie"
+cycle = 3
+pages = [1, 15]
+sommaire_until = 575
+applies = { CM1 = "2026-", CM2 = "2027-", 6e = "2027-" }
+headings = [
+    { style = "14\\.0/R/000091", x_max = 45, rank = 1, kind = "domaine" },
+    { style = "11\\.0/B/000091", x_max = 45, rank = 2, kind = "niveau" },
+    { style = "10\\.0/B/000091", x_max = 45, rank = 3, kind = "theme" },
+]
+
+# --------------------------------------------------------------------------- Sciences (PDF scannés)
+[[source]]
+id = "sciences-c2-2026"
+file = "annexe-1-programme-de-sciences-et-technologie-du-cycle-2*.pdf"
+title = "Programme de sciences et technologie du cycle 2"
+bo = "Arrêté du 5 juin 2026, BO n° 24 du 11 juin 2026"
+discipline = "Sciences et technologie"
+cycle = 2
+ocr = true
+pages = [1, 12]
+applies = { CP = "2026-", CE1 = "2026-", CE2 = "2026-" }  # remplace Questionner le monde dès la rentrée 2026
+sommaire_until = 710
+domaines = [
+    "La matière, les mesures, l'électricité",
+    "Les êtres vivants dans leur environnement",
+    "Le corps humain et la santé",
+    "Les objets techniques au cœur de la société",
+]
+rubrique_kind = "theme"  # les unités de chaque niveau sont les thèmes à programmer
+headings = [
+    { style = ".*", size_min = 8.4, x_max = 40, rank = 3, kind = "rubrique" },
+]
+
+[[source]]
+id = "sciences-c3-2026"
+file = "annexe-2-programme-de-sciences-et-technologie-du-cycle-3*.pdf"
+title = "Programme de sciences et technologie du cycle 3"
+bo = "Arrêté du 5 juin 2026, BO n° 24 du 11 juin 2026"
+discipline = "Sciences et technologie"
+cycle = 3
+ocr = true
+pages = [1, 18]
+applies = { CM1 = "2026-", CM2 = "2027-", 6e = "2027-" }
+sommaire_until = 730
+domaines = [
+    "La matière, les mouvements et les signaux",
+    "Les êtres vivants dans leur environnement",
+    "Le corps humain et la santé",
+    "Les objets techniques au cœur de la société",
+]
+rubrique_kind = "theme"  # les unités de chaque niveau sont les thèmes à programmer
+headings = [
+    { style = ".*", size_min = 8.4, x_max = 40, rank = 3, kind = "rubrique" },
+]
+
+# --------------------------------------------------------------------------- Programme du cycle 2 (2020)
+# Arts plastiques et éducation musicale restent en vigueur ; langues vivantes et EPS restent en
+# vigueur en CE1 et CE2 jusqu'à la rentrée 2027. Questionner le monde n'existe plus depuis la
+# rentrée 2026 (remplacé par les programmes d'histoire-géographie et de sciences) : gardé pour mémoire.
+[[source]]
+id = "c2-2020-lv"
+file = "ensel714_annexe1_*.pdf"
+title = "Programme du cycle 2 (2020) — Langues vivantes"
+bo = "Arrêté du 9 novembre 2015 modifié, version consolidée BO n° 31 du 30 juillet 2020"
+discipline = "Langues vivantes"
+cycle = 2
+pages = [22, 26]
+applies = { CP = "2016-2026", CE1 = "2016-2027", CE2 = "2016-2027" }
+headings = [
+    { style = "14\\.0/R/17818e", x_max = 80, rank = 1, kind = "domaine" },
+    { style = "11\\.0/B/17818e", rank = 3, kind = "rubrique" },
+]
+
+[[source]]
+id = "c2-2020-arts-plastiques"
+file = "ensel714_annexe1_*.pdf"
+title = "Programme du cycle 2 (2020) — Arts plastiques"
+bo = "Arrêté du 9 novembre 2015 modifié, version consolidée BO n° 31 du 30 juillet 2020"
+discipline = "Arts plastiques"
+cycle = 2
+pages = [27, 31]
+applies = { CP = "2016-", CE1 = "2016-", CE2 = "2016-" }
+headings = [
+    { style = "14\\.0/R/17818e", x_max = 80, rank = 1, kind = "domaine" },
+    { style = "11\\.0/B/17818e", rank = 3, kind = "theme" },
+]
+
+[[source]]
+id = "c2-2020-education-musicale"
+file = "ensel714_annexe1_*.pdf"
+title = "Programme du cycle 2 (2020) — Éducation musicale"
+bo = "Arrêté du 9 novembre 2015 modifié, version consolidée BO n° 31 du 30 juillet 2020"
+discipline = "Éducation musicale"
+cycle = 2
+pages = [32, 34]
+applies = { CP = "2016-", CE1 = "2016-", CE2 = "2016-" }
+headings = [
+    { style = "14\\.0/R/17818e", x_max = 80, rank = 1, kind = "domaine" },
+    { style = "11\\.0/B/17818e", rank = 3, kind = "rubrique" },
+]
+
+[[source]]
+id = "c2-2020-eps"
+file = "ensel714_annexe1_*.pdf"
+title = "Programme du cycle 2 (2020) — Éducation physique et sportive"
+bo = "Arrêté du 9 novembre 2015 modifié, version consolidée BO n° 31 du 30 juillet 2020"
+discipline = "EPS"
+cycle = 2
+pages = [35, 39]
+applies = { CP = "2016-2026", CE1 = "2016-2027", CE2 = "2016-2027" }
+headings = [
+    { style = "14\\.0/R/17818e", x_max = 80, rank = 1, kind = "domaine" },
+    { style = "11\\.0/B/17818e", rank = 3, kind = "rubrique" },
+]
+
+[[source]]
+id = "c2-2020-qlm"
+file = "ensel714_annexe1_*.pdf"
+title = "Programme du cycle 2 (2020) — Questionner le monde"
+bo = "Arrêté du 9 novembre 2015 modifié, version consolidée BO n° 31 du 30 juillet 2020"
+discipline = "Questionner le monde"
+cycle = 2
+pages = [46, 54]
+applies = { CP = "2016-2026", CE1 = "2016-2026", CE2 = "2016-2026" }  # remplacé par HG et sciences à la rentrée 2026
+rubrique_kind = "theme"  # les unités de chaque niveau sont les thèmes à programmer
+headings = [
+    { style = "14\\.0/R/17818e", x_max = 80, rank = 1, kind = "domaine" },
+    { style = "11\\.0/B/17818e", rank = 3, kind = "rubrique" },
+]
+
+# --------------------------------------------------------------------------- Programme du cycle 3 (2020-2023)
+[[source]]
+id = "c3-2020-lv"
+file = "programme-d-enseignement-du-cycle-3-2023-*.pdf"
+title = "Programme du cycle 3 (2020) — Langues vivantes"
+bo = "Arrêté du 9 novembre 2015 modifié, version consolidée BO n° 31 du 30 juillet 2020"
+discipline = "Langues vivantes"
+cycle = 3
+pages = [33, 41]
+applies = { CM1 = "2016-2026", CM2 = "2016-2027" }
+headings = [
+    { style = "14\\.0/R/17818e", x_max = 80, rank = 1, kind = "domaine" },
+    { style = "11\\.0/B/17818e", rank = 3, kind = "rubrique" },
+]
+
+[[source]]
+id = "c3-2020-arts-plastiques"
+file = "programme-d-enseignement-du-cycle-3-2023-*.pdf"
+title = "Programme du cycle 3 (2020) — Arts plastiques"
+bo = "Arrêté du 9 novembre 2015 modifié, version consolidée BO n° 31 du 30 juillet 2020"
+discipline = "Arts plastiques"
+cycle = 3
+pages = [42, 47]
+applies = { CM1 = "2016-", CM2 = "2016-" }
+headings = [
+    { style = "14\\.0/R/17818e", x_max = 80, rank = 1, kind = "domaine" },
+    { style = "11\\.0/B/17818e", rank = 3, kind = "theme" },
+]
+
+[[source]]
+id = "c3-2020-education-musicale"
+file = "programme-d-enseignement-du-cycle-3-2023-*.pdf"
+title = "Programme du cycle 3 (2020) — Éducation musicale"
+bo = "Arrêté du 9 novembre 2015 modifié, version consolidée BO n° 31 du 30 juillet 2020"
+discipline = "Éducation musicale"
+cycle = 3
+pages = [48, 51]
+applies = { CM1 = "2016-", CM2 = "2016-" }
+headings = [
+    { style = "14\\.0/R/17818e", x_max = 80, rank = 1, kind = "domaine" },
+    { style = "11\\.0/B/17818e", rank = 3, kind = "rubrique" },
+]
+
+[[source]]
+id = "c3-2020-histoire-des-arts"
+file = "programme-d-enseignement-du-cycle-3-2023-*.pdf"
+title = "Programme du cycle 3 (2020) — Histoire des arts"
+bo = "Arrêté du 9 novembre 2015 modifié, version consolidée BO n° 31 du 30 juillet 2020"
+discipline = "Histoire des arts"
+cycle = 3
+pages = [52, 55]
+applies = { CM1 = "2016-", CM2 = "2016-" }
+headings = [
+    { style = "14\\.0/R/17818e", x_max = 80, rank = 1, kind = "domaine" },
+    { style = "11\\.0/B/17818e", rank = 3, kind = "rubrique" },
+]
+
+[[source]]
+id = "c3-2020-eps"
+file = "programme-d-enseignement-du-cycle-3-2023-*.pdf"
+title = "Programme du cycle 3 (2020) — Éducation physique et sportive"
+bo = "Arrêté du 9 novembre 2015 modifié, version consolidée BO n° 31 du 30 juillet 2020"
+discipline = "EPS"
+cycle = 3
+pages = [56, 60]
+applies = { CM1 = "2016-2026", CM2 = "2016-2027" }
+headings = [
+    { style = "14\\.0/R/17818e", x_max = 80, rank = 1, kind = "domaine" },
+    { style = "11\\.0/B/17818e", rank = 3, kind = "rubrique" },
+]
+
+[[source]]
+id = "c3-2020-hg"
+file = "programme-d-enseignement-du-cycle-3-2023-*.pdf"
+title = "Programme du cycle 3 (2020) — Histoire et géographie"
+bo = "Arrêté du 9 novembre 2015 modifié, version consolidée BO n° 31 du 30 juillet 2020"
+discipline = "Histoire-géographie"
+cycle = 3
+pages = [68, 78]
+applies = { CM1 = "2016-2026", CM2 = "2016-2027" }
+headings = [
+    { style = "14\\.0/R/17818e", x_max = 80, rank = 1, kind = "domaine" },
+    { style = "11\\.0/B/ffffff", rank = 2, kind = "niveau" },
+    { style = "11\\.0/B/17818e", rank = 3, kind = "theme" },
+]
+
+[[source]]
+id = "c3-2023-sciences"
+file = "programme-d-enseignement-du-cycle-3-2023-*.pdf"
+title = "Programme du cycle 3 (2023) — Sciences et technologie"
+bo = "Arrêté du 15 juin 2023, BO n° 25 du 22 juin 2023"
+discipline = "Sciences et technologie"
+cycle = 3
+pages = [78, 98]
+applies = { CM1 = "2023-2026", CM2 = "2023-2027" }
+rubrique_kind = "theme"  # les unités de chaque niveau sont les thèmes à programmer
+headings = [
+    { style = "14\\.0/R/17818e", x_max = 80, rank = 1, kind = "domaine" },
+    { style = "11\\.0/B/ffffff", rank = 3, kind = "rubrique" },
+    { style = "11\\.0/B/17818e", rank = 4, kind = "sous_rubrique" },
+]
