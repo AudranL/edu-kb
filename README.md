@@ -46,7 +46,7 @@ dans `sources.toml`. Après avoir ajouté ou corrigé un programme :
 
 ```bash
 ./scripts/setup.sh --build     # analyse les PDF et reconstruit ~/.edu-kb/kb.sqlite
-./scripts/publier-base.sh      # la publie en release GitHub (code commité et poussé, gh connecté)
+./scripts/publier-base.sh      # la publie en release GitHub (depuis main à jour sur GitHub, gh connecté)
 ```
 
 `--build` installe en plus `ocrmypdf` et `tesseract-lang` : les programmes de sciences de 2026 sont

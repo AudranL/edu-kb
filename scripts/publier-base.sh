@@ -4,8 +4,10 @@
 #
 #   ./scripts/setup.sh --build && ./scripts/publier-base.sh
 #
-# La release pointe sur le commit courant (poussé, sans modification locale) : la base
-# correspond au code qui la lit.
+# La release pointe sur le commit courant, qui doit être dans origin/main et sans modification
+# locale : la base correspond au code qui la lit, et la release ne se détache pas (GitHub la
+# repasse en brouillon si son tag est supprimé ou déplacé, par exemple après la réécriture de
+# la branche qui la portait).
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -19,7 +21,9 @@ command -v gh >/dev/null || die "gh (GitHub CLI) est requis : brew install gh"
 cd "$PROJECT_DIR"
 [[ -z "$(git status --porcelain)" ]] || die "Modifications non commitées : la release doit pointer sur le code qui a construit la base"
 COMMIT="$(git rev-parse HEAD)"
-[[ -n "$(git branch -r --contains "$COMMIT")" ]] || die "Le commit ${COMMIT:0:7} n'est pas poussé : git push d'abord"
+git fetch --quiet origin main
+git merge-base --is-ancestor "$COMMIT" origin/main \
+  || die "Le commit ${COMMIT:0:7} n'est pas dans origin/main : fusionne et pousse d'abord, puis publie depuis main"
 
 OUT_DIR="$(mktemp -d)"
 trap 'rm -rf "$OUT_DIR"' EXIT
