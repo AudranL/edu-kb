@@ -19,6 +19,16 @@ die() { printf '\n✗ %s\n' "$1" >&2; exit 1; }
 command -v gh >/dev/null || die "gh (GitHub CLI) est requis : brew install gh"
 [[ -f "$DB" ]] || die "Aucune base à publier : $DB (lance ./scripts/setup.sh --build)"
 cd "$PROJECT_DIR"
+# Les guides de l'enseignant (edu-kb build --guides) sont des ressources achetées, sous droits : leur
+# base reste locale (d'un poste à l'autre : edu-kb guides-export / guides-import, par clé USB).
+GUIDES="$(uv run --quiet python - "$DB" <<'PY'
+import sqlite3, sys
+from contextlib import closing
+with closing(sqlite3.connect(sys.argv[1])) as con:
+    print(con.execute("SELECT COUNT(*) FROM nodes WHERE kind = 'guide'").fetchone()[0])
+PY
+)"
+[[ "$GUIDES" == "0" ]] || die "$DB contient des guides de l'enseignant (ressources achetées, sous droits) : elle reste locale (transfert par clé USB : edu-kb guides-export)"
 [[ -z "$(git status --porcelain)" ]] || die "Modifications non commitées : la release doit pointer sur le code qui a construit la base"
 COMMIT="$(git rev-parse HEAD)"
 git fetch --quiet origin main

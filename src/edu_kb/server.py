@@ -9,6 +9,7 @@ from typing import Annotated
 from mcp.server.mcpserver import MCPServer
 from pydantic import Field
 
+from . import guide_queries as gq
 from . import referentiel as ref_mod
 from . import sequence as seq_mod
 from .config import Settings
@@ -51,8 +52,20 @@ def format_search(query: str, result: SearchResult) -> str:
     return "\n".join(lines)
 
 
+GUIDES_INSTRUCTIONS = """
+
+Cette base contient aussi les guides pédagogiques des méthodes suivies en classe (`guides`) : en
+français, chaque jour de classe détaillé en plusieurs séances ; en maths, une séquence par semaine
+et une séance par jour. Pour « que faire tel jour » : `seances_du_jour` ; pour une période semaine par
+semaine : `progression_guides` ; pour trouver une séance : `chercher_guide` ; le déroulé complet et les
+objectifs du programme travaillés : `fiche` avec l'id d'une séance. La fiche d'un item du programme
+liste les séances des guides qui le travaillent (« dans_les_guides »). Distingue ce que dit le guide,
+ce que dit le programme et tes propres propositions."""
+
+
 def create_server(kb: KnowledgeBase, calendar_file: Path) -> MCPServer:
-    server = MCPServer(name="edu-kb", instructions=INSTRUCTIONS)
+    with_guides = gq.has_guides(kb)
+    server = MCPServer(name="edu-kb", instructions=INSTRUCTIONS + (GUIDES_INSTRUCTIONS if with_guides else ""))
 
     @server.tool(description="Recherche hybride (plein texte + sémantique) d'une notion dans les programmes : items, objectifs, thèmes.")
     def chercher(
@@ -73,7 +86,8 @@ def create_server(kb: KnowledgeBase, calendar_file: Path) -> MCPServer:
         id: Annotated[str, Field(description="id renvoyé par chercher, themes ou programme")],
         annee: Annotated[str | None, Field(description="Année scolaire, pour les liens entre disciplines")] = None,
     ) -> str:
-        card = kb.item_card(id, school_year(annee))
+        year = school_year(annee)
+        card = gq.card(kb, id, year) if with_guides else kb.item_card(id, year)
         return _json(card) if card else f"Aucun nœud avec id={id}."
 
     @server.tool(description=(
@@ -166,6 +180,9 @@ def create_server(kb: KnowledgeBase, calendar_file: Path) -> MCPServer:
             return _json(data)
         return ref_mod.to_csv(data) if format == "csv" else ref_mod.to_markdown(data)
 
+    if with_guides:
+        _guide_tools(server, kb, calendar_file)
+
     @server.prompt(name="sequence", title="Préparer une séquence",
                    description="Séquence complète et ses séances à partir d'une notion, fidèle au programme.")
     def sequence_prompt(notion: str, niveau: str, discipline: str = "", nb_seances: str = "") -> str:
@@ -197,6 +214,48 @@ l'importer dans Skola, fournis aussi le JSON (`preparer_sequence` format skola, 
 4. Rappelle que l'export pour Skola se fait avec `edu-kb skola {niveau} --zone {zone} -o programmation.json`."""
 
     return server
+
+
+def _guide_tools(server: MCPServer, kb: KnowledgeBase, calendar_file: Path) -> None:
+    """Outils des guides pédagogiques (base locale construite avec `edu-kb build --guides`)."""
+
+    @server.tool(description="Guides pédagogiques indexés (méthodes suivies en classe) : rythme, périodes, séquences ou leçons.")
+    def guides() -> str:
+        return _json(gq.guides(kb))
+
+    @server.tool(description=(
+        "Recherche une notion dans les séances des guides pédagogiques (plein texte + sens). Renvoie des ids "
+        "de séances ou de séquences : `fiche` donne le déroulé complet et les objectifs du programme travaillés."))
+    def chercher_guide(
+        notion: Annotated[str, Field(description="Notion, activité ou graphème (ex. « le son ch », « dictée de syllabes », « monnaie »)")],
+        discipline: Annotated[str | None, Field(description="Français ou maths")] = None,
+        periode: Annotated[int | None, Field(ge=1, le=5, description="Période 1 à 5")] = None,
+        limite: Annotated[int, Field(ge=1, le=30)] = 10,
+    ) -> str:
+        return gq.search_markdown(notion, gq.search(kb, notion, discipline, periode, limite))
+
+    @server.tool(description=(
+        "Ce que prévoient les guides pour un jour de classe : la séquence de maths de la semaine et ses séances du "
+        "jour, la leçon de français et ses séances, d'après le calendrier scolaire de la zone."))
+    def seances_du_jour(
+        date: Annotated[str | None, Field(description="2026-11-16 ou 16/11/2026 (par défaut aujourd'hui)")] = None,
+        zone: Annotated[str, Field(description="Zone de vacances : A, B ou C")] = "B",
+        format: Annotated[str, Field(description="markdown ou json")] = "markdown",
+    ) -> str:
+        plan = gq.day_plan(kb, calendar_file, gq.parse_date(date), zone)
+        return _json(plan) if format == "json" else gq.day_markdown(plan)
+
+    @server.tool(description=(
+        "Progression des guides semaine par semaine (séquence de maths, leçon de français de chaque jour) pour une "
+        "période ou toute l'année, avec les jours sans contenu prévu et ce qui reste à placer."))
+    def progression_guides(
+        periode: Annotated[int | None, Field(ge=1, le=5, description="Période 1 à 5 (toute l'année par défaut)")] = None,
+        zone: Annotated[str, Field(description="Zone de vacances : A, B ou C")] = "B",
+        annee: Annotated[str | None, Field(description="Année scolaire (par défaut l'année en cours)")] = None,
+        format: Annotated[str, Field(description="markdown ou json")] = "markdown",
+    ) -> str:
+        plan = gq.period_plan(kb, calendar_file, school_year(annee), zone, periode)
+        return _json(plan) if format == "json" else gq.period_markdown(plan)
 
 
 def main() -> None:

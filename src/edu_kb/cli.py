@@ -1,4 +1,6 @@
-"""Ligne de commande : edu-kb download | build | embed | status | search | fiche | themes | programme | sequence | skola | graphe | serve."""
+"""Ligne de commande : edu-kb download | build | embed | status | search | fiche | themes | programme | sequence | skola
+| referentiel | graphe | serve, et pour les guides pédagogiques : guides | guide-jour | guide-progression | guide-search
+| guides-export | guides-import."""
 
 from __future__ import annotations
 
@@ -20,13 +22,25 @@ def _kb(settings: Settings, semantic: bool = True) -> KnowledgeBase:
 
 
 def _embed(kb: KnowledgeBase) -> None:
+    from .guide_queries import has_guides
+
     try:
         n = kb.embed_missing(lambda done, total: print(f"\r  embeddings {done}/{total}", end="", flush=True))
         print(f"\nEmbeddings calculés : {n}")
         kept, dropped = kb.prune_mentions()
         print(f"Liens entre disciplines : {kept} gardés, {dropped} écartés (homonymes, mots trop courants)")
+        if has_guides(kb):
+            print(f"Séances des guides reliées au programme par le sens : {kb.link_guides()} liens")
     except EmbeddingUnavailable as exc:
         print(f"⚠ {exc}\n  L'index plein texte est prêt ; relance `edu-kb embed` quand Ollama tourne.")
+
+
+def _guides_kb(settings: Settings, semantic: bool = True) -> KnowledgeBase:
+    """La base locale avec les guides (EDU_KB_DB, sinon ~/.edu-kb/kb-guides.sqlite)."""
+    if not settings.guides_db_path.exists():
+        raise ValueError(f"aucune base avec les guides dans {settings.guides_db_path} : lance `edu-kb build --guides`")
+    embedder = OllamaEmbedder(settings.ollama_url, settings.embed_model) if semantic else None
+    return KnowledgeBase(settings.guides_db_path, embedder)
 
 
 def _write(text: str, output: Path | None) -> None:
@@ -45,6 +59,9 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("download", help="Télécharger la base publiée sur GitHub, sans reconstruire")
     p_build = sub.add_parser("build", help="Analyser les programmes de sources.toml et reconstruire le graphe")
     p_build.add_argument("--no-embed", action="store_true", help="Plein texte uniquement, sans Ollama")
+    p_build.add_argument("--guides", action="store_true",
+                         help="Ajouter les guides pédagogiques de la classe (~/.edu-kb/guides.toml, ou EDU_KB_GUIDES), "
+                              "dans une base locale à part (~/.edu-kb/kb-guides.sqlite, ou EDU_KB_DB) : jamais dans la base publiée")
     sub.add_parser("embed", help="Calculer les embeddings manquants (Ollama)")
     sub.add_parser("status", help="État de la base et des sources")
 
@@ -99,6 +116,29 @@ def main(argv: list[str] | None = None) -> None:
     p_graph = sub.add_parser("graphe", help="Exporter le graphe (GraphML, pour Gephi ou yEd)")
     p_graph.add_argument("-o", "--output", type=Path, default=Path("edu-kb.graphml"))
 
+    sub.add_parser("guides", help="Guides pédagogiques de la base locale")
+    p_gday = sub.add_parser("guide-jour", help="Ce que prévoient les guides pour un jour de classe")
+    p_gday.add_argument("date", nargs="?", help="2026-11-16 ou 16/11/2026 (défaut : aujourd'hui)")
+    p_gday.add_argument("-z", "--zone", default="B", help="Zone de vacances (A, B, C)")
+    p_gday.add_argument("-f", "--format", choices=["md", "json"], default="md")
+    p_gprog = sub.add_parser("guide-progression", help="Progression des guides semaine par semaine")
+    p_gprog.add_argument("-p", "--periode", type=int, help="Période 1 à 5 (défaut : toute l'année)")
+    p_gprog.add_argument("-z", "--zone", default="B", help="Zone de vacances (A, B, C)")
+    p_gprog.add_argument("-a", "--annee")
+    p_gprog.add_argument("-f", "--format", choices=["md", "json"], default="md")
+    p_gprog.add_argument("-o", "--output", type=Path)
+    p_gsearch = sub.add_parser("guide-search", help="Chercher une séance dans les guides")
+    p_gsearch.add_argument("query")
+    p_gsearch.add_argument("-d", "--discipline")
+    p_gsearch.add_argument("-p", "--periode", type=int)
+    p_gsearch.add_argument("-k", "--limit", type=int, default=10)
+
+    p_gexport = sub.add_parser("guides-export", help="Copier la base avec les guides (clé USB) pour un autre poste")
+    p_gexport.add_argument("destination", type=Path, help="Fichier ou dossier (ex. /Volumes/CLE)")
+    p_gexport.add_argument("--force", action="store_true", help="Remplacer le fichier s'il existe")
+    p_gimport = sub.add_parser("guides-import", help="Installer une base avec les guides copiée depuis un autre poste")
+    p_gimport.add_argument("fichier", type=Path)
+
     sub.add_parser("serve", help="Lancer le serveur MCP (stdio)")
 
     args = parser.parse_args(argv)
@@ -126,10 +166,22 @@ def _run(args: argparse.Namespace, settings: Settings) -> None:
     elif args.cmd == "build":
         from .ingest import build
 
-        kb = _kb(settings, semantic=not args.no_embed)
-        print(f"Analyse de {settings.sources_file.name} ({settings.programmes_dir}) → {settings.db_path}")
-        report = build(settings, kb)
-        print(f"Graphe : {report['noeuds']} nœuds, {report['aretes']} arêtes, {report['sources']} sources.")
+        target = settings.db_path
+        published = settings.cache_dir.parent / "kb.sqlite"
+        if args.guides:
+            target = settings.guides_db_path
+            if target.resolve() == published.resolve():
+                raise ValueError(f"les guides des éditeurs n'entrent pas dans la base publiée ({published}) : "
+                                 "choisis une autre base (EDU_KB_DB=~/.edu-kb/kb-guides.sqlite)")
+        embedder = OllamaEmbedder(settings.ollama_url, settings.embed_model) if not args.no_embed else None
+        kb = KnowledgeBase(target, embedder)
+        print(f"Analyse de {settings.sources_file.name}" + (f" et {settings.guides_file.name}" if args.guides else "")
+              + f" ({settings.programmes_dir}) → {target}")
+        report = build(settings, kb, guides=args.guides)
+        print(f"Graphe : {report['noeuds']} nœuds, {report['aretes']} arêtes, {report['sources']} sources"
+              + (f", {len(report['guides'])} guides" if args.guides else "") + ".")
+        if args.guides and published.exists():
+            print(f"Vecteurs repris de {published} : {kb.import_embeddings(published)}")
         if not args.no_embed:
             _embed(kb)
     elif args.cmd == "embed":
@@ -155,7 +207,12 @@ def _run(args: argparse.Namespace, settings: Settings) -> None:
         year = school_year(args.annee) if args.annee or args.niveau else None
         print(format_search(args.query, kb.search(args.query, args.niveau, args.discipline, year, limit=args.limit)))
     elif args.cmd == "fiche":
-        card = _kb(settings, semantic=False).item_card(args.id, school_year(args.annee))
+        from .guide_queries import card as guide_card
+        from .guide_queries import has_guides
+
+        kb = _kb(settings, semantic=False)
+        year = school_year(args.annee)
+        card = guide_card(kb, args.id, year) if has_guides(kb) else kb.item_card(args.id, year)
         print(json.dumps(card, ensure_ascii=False, indent=1) if card else f"Aucun nœud avec id={args.id}.")
     elif args.cmd == "themes":
         kb = _kb(settings, semantic=False)
@@ -191,6 +248,36 @@ def _run(args: argparse.Namespace, settings: Settings) -> None:
         render = {"md": referentiel.to_markdown, "csv": referentiel.to_csv,
                   "json": lambda d: json.dumps(d, ensure_ascii=False, indent=2)}[args.format]
         _write(render(data), args.output)
+    elif args.cmd in ("guides", "guide-jour", "guide-progression", "guide-search"):
+        from . import guide_queries as gq
+
+        kb = _guides_kb(settings, semantic=args.cmd == "guide-search")
+        if args.cmd == "guides":
+            print(json.dumps(gq.guides(kb), ensure_ascii=False, indent=1))
+        elif args.cmd == "guide-jour":
+            plan = gq.day_plan(kb, settings.calendar_file, gq.parse_date(args.date), args.zone)
+            print(gq.day_markdown(plan) if args.format == "md" else json.dumps(plan, ensure_ascii=False, indent=1))
+        elif args.cmd == "guide-progression":
+            plan = gq.period_plan(kb, settings.calendar_file, school_year(args.annee), args.zone, args.periode)
+            _write(gq.period_markdown(plan) if args.format == "md" else json.dumps(plan, ensure_ascii=False, indent=1), args.output)
+        else:
+            print(gq.search_markdown(args.query, gq.search(kb, args.query, args.discipline, args.periode, args.limit)))
+    elif args.cmd in ("guides-export", "guides-import"):
+        from .transfer import TransferError, export_base, import_base
+
+        published = settings.cache_dir.parent / "kb.sqlite"
+        try:
+            if args.cmd == "guides-export":
+                guides = export_base(settings.guides_db_path, args.destination, args.force)
+                print(f"Base exportée vers {args.destination} ({', '.join(guides)}).\n"
+                      "Sur l'autre poste : uv run edu-kb guides-import <fichier>")
+            else:
+                built_at, guides = import_base(args.fichier, settings.guides_db_path, published)
+                print(f"Base construite le {built_at} installée en {settings.guides_db_path} ({', '.join(guides)}).\n"
+                      "Pour Claude : claude mcp add --scope user edu-kb-guides "
+                      f"-e EDU_KB_DB={settings.guides_db_path} -- uv --directory <dépôt edu-kb> run edu-kb serve")
+        except TransferError as exc:
+            raise ValueError(str(exc)) from exc
     elif args.cmd == "graphe":
         from .export import graphml
 
