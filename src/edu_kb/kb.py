@@ -9,7 +9,7 @@ import sqlite3
 import threading
 import unicodedata
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -27,7 +27,14 @@ SEMANTIC_MARGIN = 0.06
 SEMANTIC_FLOOR = 0.5
 # Résultats purement lexicaux gardés quand la recherche sémantique est disponible (mots rares, sigles).
 LEXICAL_ONLY_KEPT = 3
-EMBEDDED_KINDS = ("item", "theme", "objectif", "competence")
+EMBEDDED_KINDS = ("item", "theme", "objectif", "competence", "seance", "sequence_guide")
+GUIDE_KINDS = ("seance", "sequence_guide")
+# Similarité minimale entre une séance d'un guide et un objectif du programme pour les relier par le sens,
+# et nombre d'objectifs gardés par séance.
+# Ce sont des propositions : un mot commun suffit parfois (« suite gestuelle » / « suite des nombres »).
+GUIDE_LINK_MIN_SIMILARITY = 0.6
+GUIDE_LINK_TOP = 3
+GUIDE_LINK_MARGIN = 0.04  # écart maximal avec le meilleur objectif de la séance
 # Similarité minimale entre un item et le thème qui porte une notion pour garder le lien « mentionne »
 # (calibrée sur la base : sous 0,45 presque tout est homonyme ou mot courant, au-dessus de 0,5 presque tout est pertinent).
 MENTION_MIN_SIMILARITY = 0.5
@@ -259,6 +266,57 @@ class KnowledgeBase:
             con.executemany("DELETE FROM edges WHERE src = ? AND rel = 'mentionne' AND dst = ?", drop)
             con.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('mentions_filtrees', ?)", (str(threshold),))
         return len(mentions) - len(drop), len(drop)
+
+    def import_embeddings(self, other_db: Path) -> int:
+        """Reprend les vecteurs d'une autre base (cache indexé par le texte), ouverte en lecture seule :
+        rien n'est recalculé pour les nœuds qu'elles ont en commun. Renvoie le nombre de vecteurs ajoutés."""
+        other_db = Path(other_db)
+        if not other_db.exists() or other_db.resolve() == self.db_path.resolve():
+            return 0
+        # immutable : aucune écriture, pas même les fichiers -wal et -shm à côté de l'autre base
+        with closing(sqlite3.connect(f"{other_db.resolve().as_uri()}?mode=ro&immutable=1", uri=True)) as src:
+            rows = src.execute("SELECT hash, model, vector FROM embeddings").fetchall()
+        with self._conn() as con:
+            before = con.execute("SELECT COUNT(*) FROM embeddings").fetchone()[0]
+            con.executemany("INSERT OR IGNORE INTO embeddings(hash, model, vector) VALUES (?,?,?)", rows)
+            after = con.execute("SELECT COUNT(*) FROM embeddings").fetchone()[0]
+        self._vectors = None
+        return after - before
+
+    def link_guides(self, threshold: float = GUIDE_LINK_MIN_SIMILARITY, top: int = GUIDE_LINK_TOP) -> int:
+        """Relie chaque séance d'un guide aux objectifs du programme qu'elle travaille, par le sens
+        (plus proches voisins parmi les objectifs du même niveau et de la même discipline, dans le
+        programme sur lequel s'appuie le guide). Ce sont des propositions, à distinguer des objectifs
+        que le guide cite lui-même. Renvoie le nombre de liens créés."""
+        loaded = self._load_vectors()
+        if not loaded or not loaded[0]:
+            raise EmbeddingUnavailable("aucun embedding : les séances des guides ne sont pas reliées au programme")
+        ids, matrix = loaded
+        index = {nid: i for i, (nid, _) in enumerate(ids)}
+        links = []
+        with self._conn() as con:
+            con.execute("DELETE FROM edges WHERE rel = 'travaille' AND data LIKE '%rapprochement par le sens%'")
+            guides = [self._row(r) for r in con.execute("SELECT * FROM nodes WHERE kind = 'guide'")]
+            for guide in guides:
+                year = guide["data"].get("programme")
+                targets = [self._row(r) for r in con.execute(
+                    "SELECT * FROM nodes WHERE kind = 'objectif' AND discipline = ?", (guide["discipline"],))]
+                targets = [t for t in targets if t["id"] in index and any(
+                    lv in t["levels"] and (year is None or self.applicable(t["source_id"], lv, year)) for lv in guide["levels"])]
+                seances = [r["id"] for r in con.execute(
+                    "SELECT id, data FROM nodes WHERE kind = 'seance' AND source_id = ?", (guide["source_id"],))
+                    if r["id"] in index and json.loads(r["data"]).get("type") not in ("introduction",)]
+                if not targets or not seances:
+                    continue
+                sims = matrix[[index[s] for s in seances]] @ matrix[[index[t["id"]] for t in targets]].T
+                for row, sid in zip(sims, seances):
+                    best = float(row.max())
+                    for k in np.argsort(-row)[:top]:
+                        if row[k] >= threshold and row[k] >= best - GUIDE_LINK_MARGIN:
+                            links.append((sid, "travaille", targets[k]["id"], json.dumps(
+                                {"origine": "rapprochement par le sens", "similarite": round(float(row[k]), 3)}, ensure_ascii=False)))
+            con.executemany("INSERT OR REPLACE INTO edges(src, rel, dst, data) VALUES (?,?,?,?)", links)
+        return len(links)
 
     @staticmethod
     def _embed_text(row: sqlite3.Row) -> str:

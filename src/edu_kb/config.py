@@ -25,6 +25,8 @@ class Settings:
     ollama_url: str
     embed_model: str
     base_url: str
+    guides_file: Path
+    guides_db_path: Path
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -38,6 +40,10 @@ class Settings:
             ollama_url=os.environ.get("OLLAMA_URL", "http://localhost:11434").rstrip("/"),
             embed_model=os.environ.get("EDU_KB_EMBED_MODEL", "bge-m3"),
             base_url=os.environ.get("EDU_KB_BASE_URL", PUBLISHED_BASE_URL),
+            # guides de la classe : propres à chaque enseignant, hors du dépôt (modèle : guides.exemple.toml)
+            guides_file=Path(os.environ.get("EDU_KB_GUIDES", str(home / "guides.toml"))).expanduser(),
+            # base locale avec les guides des éditeurs : jamais la base publiée (kb.sqlite)
+            guides_db_path=Path(os.environ.get("EDU_KB_DB", str(home / "kb-guides.sqlite"))).expanduser(),
         )
 
 

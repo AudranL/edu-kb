@@ -115,11 +115,88 @@ eduscol (« Enseigner au cycle 2 / 3 ») et corrige `applies` dans `sources.toml
 | `edu-kb referentiel CP [-d maths] [-f md\|json\|csv] [-o fichier]` | référentiel de compétences d'un niveau |
 | `edu-kb skola CE1 -z B [-f json\|md\|csv] [-o fichier]` | programmation + progression pour Skola |
 | `edu-kb graphe -o programmes.graphml` | exporter le graphe (Gephi, yEd) |
+| `edu-kb build --guides` | base locale avec les guides pédagogiques (voir plus bas) |
+| `edu-kb guides` · `guide-jour [date]` · `guide-progression [-p N]` · `guide-search "…"` | guides : liste, jour de classe, progression, recherche |
+| `edu-kb guides-export <clé>` · `guides-import <fichier>` | transférer la base avec les guides d'un poste à l'autre |
 | `edu-kb serve` | serveur MCP (stdio), lancé par Claude |
 
 Variables : `EDU_KB_HOME` (défaut `~/.edu-kb`), `EDU_KB_DB`, `EDU_KB_PROGRAMMES`, `EDU_KB_SOURCES`,
-`EDU_KB_CALENDRIER`, `OLLAMA_URL`, `EDU_KB_EMBED_MODEL` (défaut `bge-m3`), `EDU_KB_BASE_URL` (défaut :
+`EDU_KB_CALENDRIER`, `EDU_KB_GUIDES` (défaut `~/.edu-kb/guides.toml`), `OLLAMA_URL`, `EDU_KB_EMBED_MODEL` (défaut `bge-m3`), `EDU_KB_BASE_URL` (défaut :
 la base de la dernière release GitHub).
+
+## Guides pédagogiques (base locale, jamais publiée)
+
+Chaque classe suit ses méthodes : edu-kb n'en connaît aucune. L'enseignant décrit les guides de
+l'enseignant de **ses** méthodes dans `~/.edu-kb/guides.toml` (modèle : [`guides.exemple.toml`](guides.exemple.toml)),
+par leur rythme : `jour` (chaque jour de classe détaillé, plusieurs séances par jour) ou `semaine`
+(une séquence par semaine, une séance par jour). Ces guides sont des ressources achetées, sous
+droits : ni les PDF ni la base construite ne vont sur GitHub. Ils vont dans une **base à part**,
+`~/.edu-kb/kb-guides.sqlite` (programmes officiels + guides) ; `kb.sqlite` n'est pas touchée et
+`scripts/publier-base.sh` refuse de publier une base qui contient des guides.
+
+```bash
+cp guides.exemple.toml ~/.edu-kb/guides.toml   # puis décrire ses guides
+uv run edu-kb build --guides          # OCR (mis en cache), analyse, vecteurs, liens au programme
+uv run edu-kb guide-jour 2026-11-16   # ce que prévoient les guides ce jour-là (zone B par défaut)
+uv run edu-kb guide-progression -p 2  # la période 2 semaine par semaine
+uv run edu-kb guide-search "le son ch" -d français
+EDU_KB_DB=~/.edu-kb/kb-guides.sqlite uv run edu-kb fiche <id>   # déroulé d'une séance, ou séances d'un item
+```
+
+**Sur un autre poste (clé USB).** La base est un seul fichier, autonome (les PDF ne sont plus
+nécessaires) :
+
+```bash
+uv run edu-kb guides-export /Volumes/CLE                  # copie compacte, sans journal à côté
+uv run edu-kb guides-import /Volumes/CLE/kb-guides.sqlite # sur l'autre poste (dépôt edu-kb installé)
+```
+
+`guides-import` vérifie que le fichier est une base edu-kb avec des guides et l'installe en
+`~/.edu-kb/kb-guides.sqlite`, jamais à la place de la base publiée.
+
+- **Structure lue.** Guide par jour : période → leçon (graphème, révision, lecture d'album, de
+  conte…) → jour (« JOUR 1 », « JOUR 2 » de la leçon ; un jour du guide = un jour de classe) →
+  rituels et séances, avec leur durée, leurs phases (« MISE EN SITUATION », « MISE EN ACTIVITÉ »…) et
+  les renvois au manuel. Guide par semaine : séquences lues dans le sommaire par période → séances
+  (une par jour), et rubriques de la semaine (atelier problèmes, calcul mental, flash maths).
+  Seul le vocabulaire courant des guides de l'enseignant est reconnu : un guide organisé autrement
+  demandera d'ajuster son analyseur (`src/edu_kb/guides.py`).
+- **Liens au programme** (`travaille`) : les objectifs que le guide cite (« objectifs
+  d'apprentissage du programme ») sont reliés aux objectifs du programme ; chaque séance est en
+  plus rapprochée par le sens des objectifs les plus proches (proposition à vérifier : un mot commun
+  suffit parfois). La fiche d'un item du programme liste les séances qui le travaillent.
+- **Calendrier** (`calendrier.toml`) : la k-ième séquence d'une période sur la k-ième semaine de
+  classe de la période, la séance n sur le n-ième jour de la semaine ; le k-ième jour d'un guide par
+  jour sur le k-ième jour de classe de la période. Les jours sans contenu et ce qui déborde sont
+  signalés.
+- **OCR.** Les guides scannés passent par l'OCR de macOS (framework Vision, outil Swift compilé à
+  la première utilisation ; il faut les outils Xcode en ligne de commande), qui lit les encadrés de
+  couleur que Tesseract ignore. Les « a » lus « o » sont corrigés avec le correcteur orthographique
+  de macOS ; les mots en capitales (graphèmes, pseudo-mots) ne sont pas touchés. Le pied de page
+  (titre courant, numéro de page) est appris dans chaque fichier. Une double page lue deux fois (fin
+  d'un fichier rescannée au début du suivant) n'est écartée que si son numéro de page, son repère de
+  leçon et son texte sont les mêmes.
+- **MCP : un serveur par base.** Les outils dépendent de la base servie : la base des programmes
+  donne les outils des programmes, la base avec les guides seulement ceux des guides (`guides`,
+  `chercher_guide`, `seances_du_jour`, `progression_guides`, `fiche_guide`), sans outils en double.
+  `fiche_guide` avec l'id d'un item du programme (trouvé par `edu-kb`) donne les séances qui le
+  travaillent. `setup.sh` déclare `edu-kb` ; on ajoute `edu-kb-guides` :
+
+  ```bash
+  claude mcp add --scope user edu-kb-guides -e EDU_KB_DB=$HOME/.edu-kb/kb-guides.sqlite \
+    -- "$(command -v uv)" --directory "$PWD" run edu-kb serve
+  ```
+
+  Pour Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_config.json`), le même
+  serveur à côté de `edu-kb`, avec des chemins absolus :
+
+  ```json
+  "edu-kb-guides": {
+    "command": "/opt/homebrew/bin/uv",
+    "args": ["--directory", "/chemin/vers/edu-kb", "run", "edu-kb", "serve"],
+    "env": { "EDU_KB_DB": "/Users/<moi>/.edu-kb/kb-guides.sqlite" }
+  }
+  ```
 
 ## Export Skola
 

@@ -1,4 +1,9 @@
-"""Serveur MCP (stdio) exposant le graphe des programmes de l'école élémentaire."""
+"""Serveur MCP (stdio) : ses outils dépendent de la base servie.
+
+- Base des programmes (kb.sqlite, publiée) : les outils des programmes officiels.
+- Base avec les guides de la classe (kb-guides.sqlite, locale) : seulement les outils des guides.
+  Les deux se déclarent comme deux serveurs (edu-kb, edu-kb-guides) : chaque question va à un seul
+  serveur, sans outils en double."""
 
 from __future__ import annotations
 
@@ -9,6 +14,7 @@ from typing import Annotated
 from mcp.server.mcpserver import MCPServer
 from pydantic import Field
 
+from . import guide_queries as gq
 from . import referentiel as ref_mod
 from . import sequence as seq_mod
 from .config import Settings
@@ -51,7 +57,23 @@ def format_search(query: str, result: SearchResult) -> str:
     return "\n".join(lines)
 
 
+GUIDES_INSTRUCTIONS = """\
+Guides de l'enseignant des méthodes suivies dans la classe (`guides` : titres, rythme, périodes),
+reliés aux programmes officiels. Un guide « jour » détaille chaque jour de classe en plusieurs séances ;
+un guide « semaine » propose une séquence par semaine et une séance par jour.
+
+Pour « que faire tel jour » : `seances_du_jour` ; une période semaine par semaine : `progression_guides` ;
+trouver une séance : `chercher_guide` ; le déroulé complet d'une séance et les objectifs du programme
+qu'elle travaille : `fiche_guide` avec son id. Pour un item ou un objectif du programme (id trouvé avec
+le serveur des programmes) : `fiche_guide` donne les séances des guides qui le travaillent.
+Distingue ce que dit le guide, ce que dit le programme et tes propres propositions ; les liens « par le
+sens » entre séances et programme sont des propositions à vérifier."""
+
+
 def create_server(kb: KnowledgeBase, calendar_file: Path) -> MCPServer:
+    """Serveur des programmes, ou des guides si la base contient des guides."""
+    if gq.has_guides(kb):
+        return create_guides_server(kb, calendar_file)
     server = MCPServer(name="edu-kb", instructions=INSTRUCTIONS)
 
     @server.tool(description="Recherche hybride (plein texte + sémantique) d'une notion dans les programmes : items, objectifs, thèmes.")
@@ -195,6 +217,62 @@ l'importer dans Skola, fournis aussi le JSON (`preparer_sequence` format skola, 
    et signale les répartitions qui ne sont qu'une proposition.
 3. Présente un tableau disciplines × périodes, puis la progression semaine par semaine.
 4. Rappelle que l'export pour Skola se fait avec `edu-kb skola {niveau} --zone {zone} -o programmation.json`."""
+
+    return server
+
+
+def create_guides_server(kb: KnowledgeBase, calendar_file: Path) -> MCPServer:
+    """Outils des guides de la classe (base locale construite avec `edu-kb build --guides`)."""
+    server = MCPServer(name="edu-kb-guides", instructions=GUIDES_INSTRUCTIONS)
+
+    @server.tool(description="Guides de l'enseignant indexés (méthodes suivies en classe) : rythme, périodes, séquences ou leçons.")
+    def guides() -> str:
+        return _json(gq.guides(kb))
+
+    @server.tool(description=(
+        "Recherche une notion dans les séances des guides (plein texte + sens). Renvoie des ids de séances ou de "
+        "séquences : `fiche_guide` donne le déroulé complet et les objectifs du programme travaillés."))
+    def chercher_guide(
+        notion: Annotated[str, Field(description="Notion, activité ou graphème (ex. « le son ch », « dictée de syllabes », « monnaie »)")],
+        discipline: Annotated[str | None, Field(description="Français ou maths")] = None,
+        periode: Annotated[int | None, Field(ge=1, le=5, description="Période 1 à 5")] = None,
+        limite: Annotated[int, Field(ge=1, le=30)] = 10,
+    ) -> str:
+        return gq.search_markdown(notion, gq.search(kb, notion, discipline, periode, limite))
+
+    @server.tool(description=(
+        "Ce que prévoient les guides pour un jour de classe, d'après le calendrier scolaire de la zone : pour un "
+        "guide à la semaine, la séquence de la semaine et ses séances du jour ; pour un guide au jour, la leçon "
+        "et les séances du jour."))
+    def seances_du_jour(
+        date: Annotated[str | None, Field(description="2026-11-16 ou 16/11/2026 (par défaut aujourd'hui)")] = None,
+        zone: Annotated[str, Field(description="Zone de vacances : A, B ou C")] = "B",
+        format: Annotated[str, Field(description="markdown ou json")] = "markdown",
+    ) -> str:
+        plan = gq.day_plan(kb, calendar_file, gq.parse_date(date), zone)
+        return _json(plan) if format == "json" else gq.day_markdown(plan)
+
+    @server.tool(description=(
+        "Progression des guides semaine par semaine (séquence de la semaine, leçon de chaque jour) pour une "
+        "période ou toute l'année, avec les jours sans contenu prévu et ce qui reste à placer."))
+    def progression_guides(
+        periode: Annotated[int | None, Field(ge=1, le=5, description="Période 1 à 5 (toute l'année par défaut)")] = None,
+        zone: Annotated[str, Field(description="Zone de vacances : A, B ou C")] = "B",
+        annee: Annotated[str | None, Field(description="Année scolaire (par défaut l'année en cours)")] = None,
+        format: Annotated[str, Field(description="markdown ou json")] = "markdown",
+    ) -> str:
+        plan = gq.period_plan(kb, calendar_file, school_year(annee), zone, periode)
+        return _json(plan) if format == "json" else gq.period_markdown(plan)
+
+    @server.tool(description=(
+        "Fiche d'une séance, d'un jour, d'une séquence ou d'une leçon d'un guide : déroulé complet, durée, phases, "
+        "renvois au manuel, objectifs du programme travaillés (cités par le guide ou rapprochés par le sens). "
+        "Avec l'id d'un item ou d'un objectif du programme : les séances des guides qui le travaillent."))
+    def fiche_guide(
+        id: Annotated[str, Field(description="id renvoyé par chercher_guide, seances_du_jour, ou par le serveur des programmes")],
+    ) -> str:
+        card = gq.guide_fiche(kb, id)
+        return _json(card) if card else f"Aucun nœud avec id={id} dans les guides."
 
     return server
 

@@ -1,0 +1,51 @@
+# Modèle de description des guides pédagogiques d'une classe.
+#
+# Le choix des méthodes dépend de chaque classe : copie ce fichier en ~/.edu-kb/guides.toml (ou
+# indique son chemin dans EDU_KB_GUIDES), puis décris tes guides. Les guides de l'enseignant sont
+# des ressources achetées, sous droits : ni les PDF ni la base construite ne vont sur GitHub.
+#
+#   uv run edu-kb build --guides                     # → ~/.edu-kb/kb-guides.sqlite
+#   uv run edu-kb guides-export /Volumes/CLE/kb-guides.sqlite   # copie pour un autre poste
+#
+# En tête de fichier :
+#   dossier     où chercher les PDF (relatif à ce fichier) ; par défaut, le dossier des programmes.
+#
+# Un bloc [[guide]] par méthode :
+#   id          identifiant court, sans espace (préfixe des identifiants de ses séances)
+#   titre       titre affiché
+#   discipline  discipline du programme (Français, Mathématiques…), niveau (CP, CE1…)
+#   rythme      « jour »    : le guide détaille chaque jour de classe, avec plusieurs séances par
+#                             jour, regroupés en leçons (« JOUR 1 », « JOUR 2 » d'une leçon) ;
+#               « semaine » : une séquence par semaine, une séance par jour, listées dans un
+#                             sommaire par période (avec, s'il y en a, atelier problèmes, calcul
+#                             mental et flash maths de la semaine).
+#   programme   rentrée du programme sur lequel s'appuie le guide : ses objectifs, cités par le
+#               guide ou proches par le sens, sont reliés aux séquences et aux séances.
+#   fichiers    motifs glob des PDF ; `periode` quand le guide est découpé en un fichier par période.
+#   description (facultatif) phrase qui remplace la description du rythme.
+
+# dossier = "~/Documents/Guides de l'enseignant"
+
+[[guide]]
+id = "lecture"
+titre = "Méthode de lecture — guide de l'enseignant"
+discipline = "Français"
+niveau = "CP"
+rythme = "jour"
+programme = 2025
+fichiers = [
+    { periode = 1, file = "Lecture*periode 1*.pdf" },
+    { periode = 2, file = "Lecture*periode 2*.pdf" },
+    { periode = 3, file = "Lecture*periode 3*.pdf" },
+    { periode = 4, file = "Lecture*periode 4*.pdf" },
+    { periode = 5, file = "Lecture*periode 5*.pdf" },
+]
+
+[[guide]]
+id = "maths"
+titre = "Méthode de mathématiques — guide de l'enseignant"
+discipline = "Mathématiques"
+niveau = "CP"
+rythme = "semaine"
+programme = 2025
+fichiers = [{ file = "Maths*guide*.pdf" }]
